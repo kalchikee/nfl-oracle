@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+cache/*.json
+data/nfl_oracle.db
+data/training_data.csv
+data/model/
+logs/
+*.log
+__pycache__/
+*.pyc
+.DS_Store

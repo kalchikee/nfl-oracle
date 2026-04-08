@@ -1,0 +1,48 @@
+name: Train ML Model
+
+on:
+  # Train once before the season starts (runs August 15 each year)
+  schedule:
+    - cron: '0 12 15 8 *'   # August 15 at noon UTC every year
+  workflow_dispatch:          # Also trigger manually at any time
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install nfl_data_py pandas numpy scikit-learn
+
+      - name: Build training dataset (5 seasons: 2021–2025)
+        run: python python/build_dataset.py
+
+      - name: Train logistic regression model
+        run: python python/train_model.py
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-oracle-model
+          path: data/model/
+          retention-days: 365
+          overwrite: true
+
+      - name: Upload training dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-training-data
+          path: data/training_data.csv
+          retention-days: 90
+          overwrite: true

@@ -1,0 +1,62 @@
+name: NFL Weekly Recap
+
+on:
+  schedule:
+    # Every Tuesday at 3 PM ET (19:00 UTC) — Monday Night Football finishes ~11 PM ET Monday
+    # Recap runs before picks (3 PM), picks run at 7 PM ET Tuesday
+    - cron: '0 19 * * 2'
+  workflow_dispatch:   # Manual trigger for testing
+
+jobs:
+  weekly-recap:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Restore DB — must contain last week's predictions to score them
+      - name: Restore database
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: nfl-oracle-db
+          path: data/
+          if_no_artifact_found: ignore
+          workflow_conclusion: ''
+        continue-on-error: true
+
+      # Restore ML model
+      - name: Restore ML model
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: nfl-oracle-model
+          path: data/model/
+          if_no_artifact_found: ignore
+          workflow_conclusion: ''
+        continue-on-error: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Send weekly recap to Discord
+        run: npm run alerts:recap
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          LOG_LEVEL: info
+          LOG_FORMAT: json
+
+      # Save updated DB (with accuracy logs and result updates)
+      - name: Save database
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-oracle-db
+          path: data/nfl_oracle.db
+          retention-days: 14
+          overwrite: true
