@@ -7,6 +7,7 @@ import fetch from 'node-fetch';
 import { logger } from '../logger.js';
 import { getConfidenceTier } from '../features/marketEdge.js';
 import type { Prediction } from '../types.js';
+import type { SeasonTotals } from '../db/database.js';
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -184,6 +185,7 @@ export async function sendWeeklyRecap(
     awayScore: number;
   }>,
   metrics: { accuracy: number; brier: number; highConvAccuracy: number | null },
+  seasonTotals?: SeasonTotals,
 ): Promise<boolean> {
   if (games.length === 0) {
     return sendWebhook({
@@ -213,14 +215,22 @@ export async function sendWeeklyRecap(
     return `${ok}${bet} **${pred.away_team}** ${awayScore}–${homeScore} **${pred.home_team}** *(picked ${picked})*`;
   }).join('\n');
 
+  // Season running totals
+  let seasonLine = '';
+  if (seasonTotals && seasonTotals.totalGames > 0) {
+    const sAcc = (seasonTotals.accuracy * 100).toFixed(0);
+    const sHcAcc = seasonTotals.hcGames > 0
+      ? `  ·  ⭐ ${seasonTotals.hcCorrect}/${seasonTotals.hcGames} (${(seasonTotals.hcAccuracy * 100).toFixed(0)}%) high-conv`
+      : '';
+    seasonLine = `**📅 ${season} Season: ${seasonTotals.totalCorrect}/${seasonTotals.totalGames} (${sAcc}%)${sHcAcc}**`;
+  }
+
   const summaryLines = [
-    `**${accEmoji} ${correct}/${total} correct  (${accPct.toFixed(0)}%)**`,
+    `**${accEmoji} This week: ${correct}/${total} correct  (${accPct.toFixed(0)}%)**`,
     hcGames.length > 0
       ? `**⭐ High-conviction: ${hcCorrect}/${hcGames.length}  (${((hcCorrect / hcGames.length) * 100).toFixed(0)}%)**`
       : '**⭐ No high-conviction picks this week**',
-    metrics.highConvAccuracy !== null
-      ? `Season high-conv accuracy: **${(metrics.highConvAccuracy * 100).toFixed(0)}%**`
-      : '',
+    seasonLine,
     `Brier score: ${metrics.brier.toFixed(4)} *(lower = better, 0.25 = coin flip)*`,
   ].filter(Boolean).join('\n');
 

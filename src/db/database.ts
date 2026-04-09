@@ -278,6 +278,52 @@ export function getRecentAccuracy(lastN = 5): AccuracyLog[] {
   );
 }
 
+export interface SeasonTotals {
+  season: number;
+  totalGames: number;
+  totalCorrect: number;
+  accuracy: number;
+  hcGames: number;
+  hcCorrect: number;
+  hcAccuracy: number;
+  avgBrier: number;
+}
+
+export function getSeasonTotals(season: number): SeasonTotals {
+  // Sum up all evaluated predictions for the season
+  const rows = queryAll<{
+    correct: number | null;
+    calibrated_prob: number;
+  }>(
+    `SELECT correct, calibrated_prob FROM predictions
+     WHERE season = ? AND correct IS NOT NULL`,
+    [season]
+  );
+
+  const total = rows.length;
+  const correct = rows.filter(r => r.correct === 1).length;
+  const hcRows = rows.filter(r => Math.max(r.calibrated_prob, 1 - r.calibrated_prob) >= 0.67);
+  const hcCorrect = hcRows.filter(r => r.correct === 1).length;
+
+  // Average Brier from accuracy_log
+  const brierRows = queryAll<{ avg_brier: number }>(
+    `SELECT AVG(brier_score) as avg_brier FROM accuracy_log WHERE season = ?`,
+    [season]
+  );
+  const avgBrier = brierRows[0]?.avg_brier ?? 0;
+
+  return {
+    season,
+    totalGames: total,
+    totalCorrect: correct,
+    accuracy: total > 0 ? correct / total : 0,
+    hcGames: hcRows.length,
+    hcCorrect,
+    hcAccuracy: hcRows.length > 0 ? hcCorrect / hcRows.length : 0,
+    avgBrier,
+  };
+}
+
 export function closeDb(): void {
   if (_db) {
     persistDb();

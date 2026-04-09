@@ -137,7 +137,7 @@ async function runRecapAlert(week: number, season: number): Promise<void> {
   const label = weekLabel(recapWeek, season);
 
   const { games, metrics } = await processWeekResults(recapWeek, season, startDate, endDate);
-  await sendWeeklyRecap(recapWeek, season, label, games, metrics);
+  await sendWeeklyRecap(recapWeek, season, label, games, metrics, metrics.seasonTotals);
 
   // After Super Bowl (week 22), send season summary
   if (week > 22) {

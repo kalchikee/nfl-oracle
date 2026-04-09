@@ -5,8 +5,9 @@ import { logger } from '../logger.js';
 import { fetchCompletedResults } from '../api/nflClient.js';
 import {
   getPredictionByGameId, updatePredictionResult, upsertGameResult, upsertAccuracyLog,
-  getPredictionsByWeek,
+  getPredictionsByWeek, getSeasonTotals,
 } from '../db/database.js';
+import type { SeasonTotals } from '../db/database.js';
 import { updateElo } from '../features/eloEngine.js';
 import type { Prediction } from '../types.js';
 
@@ -20,6 +21,7 @@ export interface RecapMetrics {
   accuracy: number;
   brier: number;
   highConvAccuracy: number | null;
+  seasonTotals?: SeasonTotals;
 }
 
 // ─── Process a week's results ─────────────────────────────────────────────────
@@ -81,6 +83,7 @@ export async function processWeekResults(
   }
 
   const metrics = computeMetrics(games.map(g => g.prediction), week, season, games);
+  metrics.seasonTotals = getSeasonTotals(season);
 
   return { games, metrics };
 }
