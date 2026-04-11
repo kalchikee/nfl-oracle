@@ -59,7 +59,7 @@ def load_prod_model():
 
 def predict_with_prod_model(X, coef, scaler_data):
     mean = np.array(scaler_data["mean"])
-    std  = np.array(scaler_data["std"])
+    std  = np.array(scaler_data["scale"])
     X_s  = (X - mean) / np.maximum(std, 1e-8)
     logits = X_s @ np.array(coef["coefficients"]) + coef["intercept"]
     return 1 / (1 + np.exp(-np.array(logits)))
