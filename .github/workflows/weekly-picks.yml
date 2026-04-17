@@ -31,15 +31,8 @@ jobs:
           workflow_conclusion: ''
         continue-on-error: true
 
-      # Restore trained model artifacts (coefficients, scaler, calibration)
-      - name: Restore ML model
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          name: nfl-oracle-model
-          path: data/model/
-          if_no_artifact_found: ignore
-          workflow_conclusion: ''
-        continue-on-error: true
+      # ML model files are committed to the repo — checkout@v4 always gets latest.
+      # Removed artifact download that was overwriting committed models with stale copies.
 
       - name: Install dependencies
         run: npm ci
