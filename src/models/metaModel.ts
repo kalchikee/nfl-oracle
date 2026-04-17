@@ -176,7 +176,8 @@ export function predict(features: FeatureVector, mcWinPct: number): number {
       prob = applyCalibration(prob, _calibration);
     }
 
-    return Math.max(0.01, Math.min(0.99, prob));
+    // Cap at 85%: no single NFL game is more predictable than this
+    return Math.max(0.15, Math.min(0.85, prob));
   } catch (err) {
     logger.debug({ err }, 'ML predict error — falling back to Monte Carlo');
     return mcWinPct;
