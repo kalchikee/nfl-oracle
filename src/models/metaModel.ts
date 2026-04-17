@@ -27,15 +27,11 @@ export const FEATURE_NAMES = [
   'passer_rating_diff',
   'third_down_diff',
   'red_zone_diff',
-  'injury_impact_diff',
-  'qb_out_home',
-  'qb_out_away',
+  // Dropped: injury_impact_diff, qb_out_home, qb_out_away (no historical data)
   'rest_days_diff',
   'short_week_home',
   'short_week_away',
-  'wind_adj',
-  'precip_adj',
-  'temp_adj',
+  // Dropped: wind_adj, precip_adj, temp_adj (no historical data)
   'altitude_adj',
   'divisional_game',
   'is_neutral',
