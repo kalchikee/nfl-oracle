@@ -47,3 +47,40 @@ export function formatEdge(result: EdgeResult): string {
   const sign = result.edge >= 0 ? '+' : '';
   return `Model: ${(result.modelProb * 100).toFixed(1)}% | Vegas: ${(result.vegasProb * 100).toFixed(1)}% | Edge: ${sign}${(result.edge * 100).toFixed(1)}% [${result.edgeCategory.toUpperCase()}]`;
 }
+
+// ─── Signal agreement ─────────────────────────────────────────────────────────
+// Counts how many model signals agree with the pick direction.
+// NFL signals: Elo, Pythagorean expectation, net PPG, rest advantage, passer rating.
+// More agreeing signals = pick is backed by multiple independent factors.
+
+export type SignalAgreement = {
+  agreeing: number;
+  total: number;
+  label: 'CONTRARIAN' | 'SPLIT' | 'MAJORITY' | 'CONSENSUS' | 'LOCK';
+};
+
+export function getSignalAgreement(
+  features: Record<string, number>,
+  pickIsHome: boolean,
+): SignalAgreement {
+  const dir = pickIsHome ? 1 : -1;
+  const candidates: Array<number | undefined> = [
+    features['elo_diff'],
+    features['pythagorean_diff'],
+    features['net_ppg_diff'],
+    features['rest_days_diff'],
+    features['passer_rating_diff'],
+  ];
+  const valid = candidates.filter((v): v is number => v != null);
+  const agreeing = valid.filter(v => v * dir > 0).length;
+  const total = valid.length;
+
+  let label: SignalAgreement['label'];
+  if (agreeing === total)  label = 'LOCK';
+  else if (agreeing >= 4)  label = 'CONSENSUS';
+  else if (agreeing >= 3)  label = 'MAJORITY';
+  else if (agreeing >= 2)  label = 'SPLIT';
+  else                     label = 'CONTRARIAN';
+
+  return { agreeing, total, label };
+}
