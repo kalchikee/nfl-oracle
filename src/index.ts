@@ -165,6 +165,12 @@ async function main(): Promise<void> {
   const week = opts.week ?? currentInfo.week;
   const season = opts.season ?? currentInfo.season ?? getCurrentNFLSeason();
 
+  // Guard against null/0/NaN week — would silently post empty Discord alerts
+  if (!week || !Number.isFinite(week) || week < 1 || week > 22) {
+    logger.warn({ week, currentInfo }, 'Invalid week — skipping alert (off-season or API failure)');
+    process.exit(0);
+  }
+
   logger.info({ week, season, alert: opts.alertMode ?? 'pipeline' }, 'NFL Oracle starting');
 
   try {
