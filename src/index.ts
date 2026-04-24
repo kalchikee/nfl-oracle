@@ -128,6 +128,7 @@ async function runPicksAlert(week: number, season: number): Promise<void> {
 }
 
 async function runRecapAlert(week: number, season: number): Promise<void> {
+  await initDb();  // Was missing — caused "Database not initialized" crash
   const { sendWeeklyRecap } = await import('./alerts/discord.js');
   const { processWeekResults } = await import('./alerts/results.js');
 
