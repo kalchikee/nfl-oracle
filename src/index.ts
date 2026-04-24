@@ -109,6 +109,7 @@ function getWeekDateRange(week: number, season: number): { startDate: string; en
 
 async function runPicksAlert(week: number, season: number): Promise<void> {
   const { sendWeeklyPicks } = await import('./alerts/discord.js');
+  const { writePredictionsFile } = await import('./kalshi/predictionsFile.js');
   await initDb();
 
   let predictions = getPredictionsByWeek(week, season);
@@ -121,6 +122,16 @@ async function runPicksAlert(week: number, season: number): Promise<void> {
   if (predictions.length === 0) {
     logger.warn({ week, season }, 'No games found — nothing to send');
     return;
+  }
+
+  // Emit predictions JSON for kalshi-safety to consume via GitHub raw URL.
+  // File keyed by today's date (UTC) since NFL picks fire Tuesday for the upcoming week.
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const jsonPath = writePredictionsFile(today, predictions);
+    logger.info({ path: jsonPath, picks: predictions.length }, 'Wrote predictions JSON');
+  } catch (err) {
+    logger.error({ err }, 'Failed to write predictions JSON');
   }
 
   const label = weekLabel(week, season);
