@@ -91,7 +91,61 @@ export function loadModel(): boolean {
     if (existsSync(metaPath)) {
       _metadata = JSON.parse(readFileSync(metaPath, 'utf-8')) as ModelMetadata;
     }
-    logger.info({ version: _metadata?.version, brier: _metadata?.avg_brier }, 'ML model loaded');
+
+    // ─── Sanity checks ─────────────────────────────────────────────────────
+    // Coefficients are positional. Lengths MUST agree with the TS-side
+    // FEATURE_NAMES, the JSON's own feature_names, and scaler.mean/scale.
+    // Any drift means the standardized z-scores would be applied to the
+    // wrong coefficient — silently producing garbage predictions.
+    const tsLen = FEATURE_NAMES.length;
+    const coefLen = Array.isArray(_model.coefficients) ? _model.coefficients.length : -1;
+    const jsonNamesLen = Array.isArray(_model.feature_names) ? _model.feature_names.length : -1;
+    const meanLen = Array.isArray(_scaler.mean) ? _scaler.mean.length : -1;
+    const scaleLen = Array.isArray(_scaler.scale) ? _scaler.scale.length : -1;
+
+    if (coefLen !== tsLen || meanLen !== tsLen || scaleLen !== tsLen ||
+        (jsonNamesLen >= 0 && jsonNamesLen !== tsLen)) {
+      logger.error(
+        { tsFeatures: tsLen, coefficients: coefLen, jsonFeatureNames: jsonNamesLen, mean: meanLen, scale: scaleLen },
+        'ML model load aborted: feature-count mismatch between FEATURE_NAMES, coefficients, and scaler — refusing to use the model.',
+      );
+      _model = null;
+      _scaler = null;
+      _calibration = null;
+      return false;
+    }
+
+    // All-zero / NaN check on the coefficient array — if the JSON shape changed
+    // (e.g. became name-keyed) the positional read would yield all undefined→0.
+    const coefArr = _model.coefficients;
+    let nonZero = 0;
+    let hasNaN = false;
+    for (const v of coefArr) {
+      if (typeof v !== 'number' || Number.isNaN(v)) { hasNaN = true; break; }
+      if (v !== 0) nonZero++;
+    }
+    if (hasNaN) {
+      logger.error({ features: coefLen }, 'ML model has NaN/non-numeric coefficients — refusing to use the model.');
+      _model = null;
+      _scaler = null;
+      _calibration = null;
+      return false;
+    }
+    if (nonZero === 0) {
+      logger.error(
+        { features: coefLen },
+        'ML model loaded but ALL coefficients are zero — JSON shape likely mismatched. Refusing to use the model.',
+      );
+      _model = null;
+      _scaler = null;
+      _calibration = null;
+      return false;
+    }
+
+    logger.info(
+      { version: _metadata?.version, brier: _metadata?.avg_brier, features: coefLen, nonZeroCoeffs: nonZero },
+      'ML model loaded'
+    );
     return true;
   } catch (err) {
     logger.warn({ err }, 'Failed to load ML model — falling back to Monte Carlo');
