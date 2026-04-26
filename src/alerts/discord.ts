@@ -188,14 +188,8 @@ export async function sendWeeklyRecap(
   seasonTotals?: SeasonTotals,
 ): Promise<boolean> {
   if (games.length === 0) {
-    return sendWebhook({
-      embeds: [{
-        title: `📊 NFL Oracle — ${seasonLabel} Recap`,
-        description: 'No completed games found. Results may still be processing.',
-        color: COLORS.recap_neutral,
-        timestamp: new Date().toISOString(),
-      }],
-    });
+    logger.info({ week, season, seasonLabel }, 'No completed games to recap — skipping Discord notification');
+    return false;
   }
 
   const correct = games.filter(g => g.prediction.correct).length;
