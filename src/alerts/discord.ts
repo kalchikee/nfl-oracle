@@ -6,6 +6,7 @@
 import fetch from 'node-fetch';
 import { logger } from '../logger.js';
 import { getConfidenceTier } from '../features/marketEdge.js';
+import { getSeasonTotals } from '../db/database.js';
 import type { Prediction } from '../types.js';
 import type { SeasonTotals } from '../db/database.js';
 
@@ -109,6 +110,17 @@ export async function sendWeeklyPicks(
   const highConv = sorted.filter(p => isHighConviction(p));
   const hasEdge = sorted.some(p => p.edge !== undefined && Math.abs(p.edge ?? 0) >= 0.06);
 
+  // ── Season hit-rate ─────────────────────────────────────────────────────
+  // Pulled from the same getSeasonTotals() source the weekly recap uses,
+  // so morning + evening agree on the number. Only shown when the season
+  // has graded predictions (off-season → totalGames === 0 → hidden).
+  const seasonTotals = getSeasonTotals(season);
+  const seasonField: DiscordField | null = seasonTotals.totalGames > 0 ? {
+    name: '📊 Season Accuracy',
+    value: `**${pct(seasonTotals.accuracy)}** · ${seasonTotals.totalCorrect}/${seasonTotals.totalGames} predictions correct this season`,
+    inline: false,
+  } : null;
+
   // ── Embed 1: All Picks ────────────────────────────────────────────────────
   const picksFields: DiscordField[] = sorted.map(pred => {
     const { team, winPct } = pickTeam(pred);
@@ -130,7 +142,10 @@ export async function sendWeeklyPicks(
     title: `🏈 NFL Oracle — ${seasonLabel} Picks`,
     description: `${predictions.length} games this week  ·  ${highConv.length} high-conviction pick${highConv.length !== 1 ? 's' : ''}${hasEdge ? '  ·  ⚡ edge games flagged' : ''}`,
     color: COLORS.picks,
-    fields: picksFields.slice(0, 20), // Discord max 25 fields
+    fields: [
+      ...(seasonField ? [seasonField] : []),
+      ...picksFields.slice(0, 20),
+    ], // Discord max 25 fields
     footer: { text: '🔥🔥🔥 Extreme  🔥🔥 High  🔥 Strong  ✅ Lean  🪙 Coin Flip  ·  NFL Oracle v4.0' },
     timestamp: new Date().toISOString(),
   };
