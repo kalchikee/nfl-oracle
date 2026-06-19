@@ -6,7 +6,7 @@
 import fetch from 'node-fetch';
 import { logger } from '../logger.js';
 import { getConfidenceTier } from '../features/marketEdge.js';
-import { getSeasonTotals } from '../db/database.js';
+import { getSeasonTotals, getConfidenceBuckets } from '../db/database.js';
 import type { Prediction } from '../types.js';
 import type { SeasonTotals } from '../db/database.js';
 
@@ -121,6 +121,24 @@ export async function sendWeeklyPicks(
     inline: false,
   } : null;
 
+  // ── Per-confidence-bucket calibration ──────────────────────────────────
+  // Shows how accurate the model was at each declared-confidence tier so
+  // readers can see whether 70% picks actually hit ~70%. Bins on pick-side
+  // probability; only buckets with graded picks are emitted. Gated on the
+  // season having any graded predictions at all.
+  const calibrationField: DiscordField | null = seasonTotals.totalGames > 0 ? (() => {
+    const buckets = getConfidenceBuckets(season);
+    if (buckets.length === 0) return null;
+    const lines = buckets.map(b =>
+      `**${b.label}** · ${b.correct}/${b.total} (${(b.accuracy * 100).toFixed(1)}%)`
+    );
+    return {
+      name: '🎯 Calibration by confidence',
+      value: lines.join('\n'),
+      inline: false,
+    };
+  })() : null;
+
   // ── Embed 1: All Picks ────────────────────────────────────────────────────
   const picksFields: DiscordField[] = sorted.map(pred => {
     const { team, winPct } = pickTeam(pred);
@@ -144,6 +162,7 @@ export async function sendWeeklyPicks(
     color: COLORS.picks,
     fields: [
       ...(seasonField ? [seasonField] : []),
+      ...(calibrationField ? [calibrationField] : []),
       ...picksFields.slice(0, 20),
     ], // Discord max 25 fields
     footer: { text: '🔥🔥🔥 Extreme  🔥🔥 High  🔥 Strong  ✅ Lean  🪙 Coin Flip  ·  NFL Oracle v4.0' },
